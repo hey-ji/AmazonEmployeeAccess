@@ -8,8 +8,10 @@ library(themis)
 
 # Read in the data
 #setwd("/Users/student/Desktop/STAT348/AmazonEmployeeAccess")
-amazon_training  <- vroom("/Users/student/Desktop/STAT348/AmazonEmployeeAccess/train.csv")
-amazon_test <- vroom("/Users/student/Desktop/STAT348/AmazonEmployeeAccess/test.csv")
+#amazon_training  <- vroom("/Users/student/Desktop/STAT348/AmazonEmployeeAccess/train.csv")
+amazon_training  <- vroom("./train.csv")
+#amazon_test <- vroom("/Users/student/Desktop/STAT348/AmazonEmployeeAccess/test.csv")
+amazon_test <- vroom("./test.csv")
 amazon_training$ACTION <- as.factor(amazon_training$ACTION)
 
 # Set up a recipe
@@ -26,64 +28,64 @@ bake(prep, new_data=amazon_training)
 bake(prep, new_data=amazon_test)
 
 
-# Logistic Regression -----------------------------------------------------
-logistic_regression_mod <- logistic_reg() %>% #Type of model
-  set_engine("glm")
-
-amazon_workflow <- workflow() %>%
-  add_recipe(my_recipe) %>%
-  add_model(logistic_regression_mod) %>%
-  fit(data = amazon_training) # Fit the workflow
-
-amazon_predictions <- predict(amazon_workflow,
-                              new_data=amazon_test,
-                              type="prob") %>%
-  bind_cols(amazon_test) %>%
-  rename(ACTION=.pred_1) %>%
-  select(id, ACTION)
-vroom_write(x = amazon_predictions, file = "(Balance)Logistic", delim = ",")
-
-
-# Penalized Logistic Regression -------------------------------------------
-penalized_logistic_mod <- logistic_reg(mixture=tune(), penalty=tune()) %>% #Type of model
-  set_engine("glmnet")
-
-amazon_workflow <- workflow() %>%
-  add_recipe(my_recipe) %>%
-  add_model(penalized_logistic_mod)
-
-## Grid of values to tune over
-tuning_grid <- grid_regular(penalty(),
-                            mixture(),
-                            levels = 5) ## L^2 total tuning possibilities
-
-## Split data for CV
-folds <- vfold_cv(amazon_training, v = 5, repeats=1)
-
-## Run the CV
-CV_results <- amazon_workflow %>%
-  tune_grid(resamples=folds,
-            grid=tuning_grid,
-            metrics=metric_set(roc_auc)) #Or leave metrics NULL, roc_auc, f_meas, sens, recall, spec,22
-# precision, accuracy
-
-## Find Best Tuning Parameters
-bestTune <- CV_results %>%
-  select_best("roc_auc")
-
-## Finalize the Workflow & fit it
-final_wf <-
-  amazon_workflow %>%
-  finalize_workflow(bestTune) %>%
-  fit(data=amazon_training)
-
-## Predict
-amazon_predictions <- final_wf %>%
-  predict(new_data = amazon_test, type="prob") %>%
-  bind_cols(amazon_test) %>%
-  rename(ACTION=.pred_1) %>%
-  select(id, ACTION)
-vroom_write(x = amazon_predictions, file = "(Balance)Penalized", delim = ",")
+# # Logistic Regression -----------------------------------------------------
+# logistic_regression_mod <- logistic_reg() %>% #Type of model
+#   set_engine("glm")
+# 
+# amazon_workflow <- workflow() %>%
+#   add_recipe(my_recipe) %>%
+#   add_model(logistic_regression_mod) %>%
+#   fit(data = amazon_training) # Fit the workflow
+# 
+# amazon_predictions <- predict(amazon_workflow,
+#                               new_data=amazon_test,
+#                               type="prob") %>%
+#   bind_cols(amazon_test) %>%
+#   rename(ACTION=.pred_1) %>%
+#   select(id, ACTION)
+# vroom_write(x = amazon_predictions, file = "(Balance)Logistic", delim = ",")
+# 
+# 
+# # Penalized Logistic Regression -------------------------------------------
+# penalized_logistic_mod <- logistic_reg(mixture=tune(), penalty=tune()) %>% #Type of model
+#   set_engine("glmnet")
+# 
+# amazon_workflow <- workflow() %>%
+#   add_recipe(my_recipe) %>%
+#   add_model(penalized_logistic_mod)
+# 
+# ## Grid of values to tune over
+# tuning_grid <- grid_regular(penalty(),
+#                             mixture(),
+#                             levels = 5) ## L^2 total tuning possibilities
+# 
+# ## Split data for CV
+# folds <- vfold_cv(amazon_training, v = 5, repeats=1)
+# 
+# ## Run the CV
+# CV_results <- amazon_workflow %>%
+#   tune_grid(resamples=folds,
+#             grid=tuning_grid,
+#             metrics=metric_set(roc_auc)) #Or leave metrics NULL, roc_auc, f_meas, sens, recall, spec,22
+# # precision, accuracy
+# 
+# ## Find Best Tuning Parameters
+# bestTune <- CV_results %>%
+#   select_best("roc_auc")
+# 
+# ## Finalize the Workflow & fit it
+# final_wf <-
+#   amazon_workflow %>%
+#   finalize_workflow(bestTune) %>%
+#   fit(data=amazon_training)
+# 
+# ## Predict
+# amazon_predictions <- final_wf %>%
+#   predict(new_data = amazon_test, type="prob") %>%
+#   bind_cols(amazon_test) %>%
+#   rename(ACTION=.pred_1) %>%
+#   select(id, ACTION)
+# vroom_write(x = amazon_predictions, file = "(Balance)Penalized", delim = ",")
 
 
 # Random Forest -----------------------------------------------------------
@@ -107,7 +109,7 @@ tuning_grid <- grid_regular(mtry(range = c(1,ncol(amazon_training)-1)),
                             levels = 5)
 
 # Set up K-fold CV
-folds <- vfold_cv(amazon_training, v = 10, repeats=1)
+folds <- vfold_cv(amazon_training, v = 5, repeats=1)
 
 CV_results <- amazon_workflow %>%
   tune_grid(resamples=folds,
