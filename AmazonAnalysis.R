@@ -6,6 +6,7 @@ library(vroom)
 #setwd("/Users/student/Desktop/STAT348/AmazonEmployeeAccess")
 amazon_training  <- vroom("/Users/student/Desktop/STAT348/AmazonEmployeeAccess/train.csv")
 amazon_test <- vroom("/Users/student/Desktop/STAT348/AmazonEmployeeAccess/test.csv")
+view(amazon_training)
 amazon_training$ACTION <- as.factor(amazon_training$ACTION)
 
 
@@ -441,7 +442,7 @@ vroom_write(x = amazon_predictions, file = "NaiveBayes_With_PCS.csv", delim = ",
 # Support Vector Machines -------------------------------------------------
 
 library(tidymodels)
-library(embed)
+library(embed)q
 library(vroom)
 # set working directory
 setwd("/Users/student/Desktop/STAT348/AmazonEmployeeAccess")

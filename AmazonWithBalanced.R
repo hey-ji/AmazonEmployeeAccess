@@ -7,20 +7,22 @@ library(vroom)
 library(themis)
 
 # Read in the data
-#setwd("/Users/student/Desktop/STAT348/AmazonEmployeeAccess")
-#amazon_training  <- vroom("/Users/student/Desktop/STAT348/AmazonEmployeeAccess/train.csv")
-amazon_training  <- vroom("./train.csv")
-#amazon_test <- vroom("/Users/student/Desktop/STAT348/AmazonEmployeeAccess/test.csv")
-amazon_test <- vroom("./test.csv")
+setwd("/Users/student/Desktop/STAT348/AmazonEmployeeAccess")
+amazon_training  <- vroom("/Users/student/Desktop/STAT348/AmazonEmployeeAccess/train.csv")
+#amazon_training  <- vroom("./train.csv")
+amazon_test <- vroom("/Users/student/Desktop/STAT348/AmazonEmployeeAccess/test.csv")
+#amazon_test <- vroom("./test.csv")
 amazon_training$ACTION <- as.factor(amazon_training$ACTION)
 
 # Set up a recipe
 my_recipe <- recipe(ACTION~., data=amazon_training) %>%
   step_mutate_at(all_numeric_predictors(), fn = factor) %>% # turn all numeric features into factors
-  step_other(all_nominal_predictors(), threshold = .001) %>% # combines categorical values that occur <5% into an "other" value
-  step_lencode_mixed(all_nominal_predictors(), outcome = vars(ACTION)) %>% #target encoding: factors -> numeric
-  step_normalize(all_predictors()) %>%
-  step_smote(all_outcomes(), neighbors=3)
+  #step_other(all_nominal_predictors(), threshold = .001) %>% # combines categorical values that occur <5% into an "other" value
+  step_lencode_mixed(all_nominal_predictors(), outcome = vars(ACTION)) 
+#%>% target encoding: factors -> numeric
+  #step_normalize(all_predictors()) 
+#%>%
+  #step_smote(all_outcomes(), neighbors=3)
 
 # apply the recipe to your data
 prep <- prep(my_recipe)
@@ -91,11 +93,17 @@ bake(prep, new_data=amazon_test)
 # Random Forest -----------------------------------------------------------
 
 # model for random forest
-my_forest_model <- rand_forest(mtry = tune(),
-                      min_n = tune(),
-                      trees = 500) %>%
+my_forest_model <- rand_forest(mtry = 1,
+                      min_n = 15,
+                      trees = 1000) %>%
   set_engine("ranger") %>%
   set_mode("classification")
+
+# my_forest_model <- rand_forest(mtry = tune(),
+#                                min_n = tune(),
+#                                trees = 1000) %>%
+#   set_engine("ranger") %>%
+#   set_mode("classification")
 
 # Create a workflow with model & recipe
 amazon_workflow <- workflow() %>%
@@ -103,44 +111,44 @@ amazon_workflow <- workflow() %>%
   add_model(my_forest_model) %>%
   fit(data = amazon_training)
 
-# Set up grid of tuning values
-tuning_grid <- grid_regular(mtry(range = c(1,ncol(amazon_training)-1)),
-                            min_n(),
-                            levels = 5)
-
-# Set up K-fold CV
-folds <- vfold_cv(amazon_training, v = 5, repeats=1)
-
-CV_results <- amazon_workflow %>%
-  tune_grid(resamples=folds,
-            grid=tuning_grid,
-            metrics=metric_set(roc_auc))
-# run the CV
-CV_results <- amazon_workflow %>%
-  tune_grid(resamples=folds,
-            grid=tuning_grid,
-            metrics=metric_set(roc_auc))
-
-# Find best tuning parameters
-bestTune <- CV_results %>%
-  select_best("roc_auc")
-
-# Finalize workflow and predict
-final_wf <-
-  amazon_workflow %>%
-  finalize_workflow(bestTune) %>%
-  fit(data=amazon_training)
-
-final_wf %>%
-  predict(new_data = amazon_test)
+# # Set up grid of tuning values
+# tuning_grid <- grid_regular(mtry(range = c(1,ncol(amazon_training)-1)),
+#                             min_n(),
+#                             levels = 7)
+# 
+# # Set up K-fold CV
+# folds <- vfold_cv(amazon_training, v = 7, repeats=1)
+# 
+# CV_results <- amazon_workflow %>%
+#   tune_grid(resamples=folds,
+#             grid=tuning_grid,
+#             metrics=metric_set(roc_auc))
+# # run the CV
+# CV_results <- amazon_workflow %>%
+#   tune_grid(resamples=folds,
+#             grid=tuning_grid,
+#             metrics=metric_set(roc_auc))
+# 
+# # Find best tuning parameters
+# bestTune <- CV_results %>%
+#   select_best("roc_auc")
+# 
+# # Finalize workflow and predict
+# final_wf <-
+#   amazon_workflow %>%
+#   finalize_workflow(bestTune) %>%
+#   fit(data=amazon_training)
+# 
+# final_wf %>%
+#   predict(new_data = amazon_test)
 
 # Formatting for submission
-amazon_predictions <- final_wf %>%
+amazon_predictions <- amazon_workflow %>%
   predict(new_data = amazon_test, type="prob") %>%
   bind_cols(amazon_test) %>%
   rename(ACTION=.pred_1) %>%
   select(id, ACTION)
-vroom_write(x = amazon_predictions, file = "/Users/student/Desktop/STAT348/AmazonEmployeeAccess/(Balanced)RandomForest.csv", delim = ",")
+vroom_write(x = amazon_predictions, file = "/Users/student/Desktop/STAT348/AmazonEmployeeAccess/(Balanced)RandomForest(Lucy).csv", delim = ",")
 
 
 # Naive Bayes -------------------------------------------------------------
